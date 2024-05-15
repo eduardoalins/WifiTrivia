@@ -15,15 +15,16 @@ typedef struct node {
   int ano;
   struct node *prox;
   struct node *ant;
+  int errado;
 } carta;
 
 int x = 34, y = 12;
 int incX = 1, incY = 1;
 // Tela (X: 3 - 72 Y: 1 - 48)
-// ➣
+// ➣ ♥
 
 void inserirLista(carta **head, char nome[TAMANHO], int ano, int cont,
-                  char acontecimento[TAMANHO]);
+                  char acontecimento[TAMANHO], int cor);
 void printListaTela(carta *head);
 // void ordenarLista(carta **head, int tamanho);
 int calcularTamanhoLista(carta *head);
@@ -32,39 +33,44 @@ void apagarListaTela(carta *head);
 void colocarID(carta **head);
 void printSeta(int qtdTermos, int x, int y);
 void apagarSeta(int x, int y);
-void lerArquivo(carta **head, const char *filename);
-// void trocarCelula(carta **atual, carta **prox);
+carta *escolherCarta(carta *head);
+carta *conversaoLinha(char *linha);
+// void trocarCelula(carta **atualC, carta **proxC);
 int jogo(carta *head);
 void menu();
 void comoJogar();
 void atualizarHead(carta **head);
 void printNovaCarta(carta carta);
+void printVida(int quantidade);
 
 int main() {
+  srand(time(NULL));
   carta *head = NULL;
-  lerArquivo(&head, "bibliotecaWiki.txt");
   menu();
 
+  carta *primeiraCarta = escolherCarta(head);
+  inserirLista(&head, primeiraCarta->nome, primeiraCarta->ano, 0,
+               primeiraCarta->acontecimento, 0);
+
   while (1) {
+    timerInit(0);
     screenGotoxy(4, 19);
     if (keyhit()) {
       char key = readch();
       if (key == '1') {
-        inserirLista(&head, "Carta 1", 1990, 0, "seila porra 1");
-        inserirLista(&head, "Carta 2", 2000, 1, "seila porra 2");
-        inserirLista(&head, "Carta 3", 2010, 0, "seila porra 3");
-        int jogoValidacao = jogo(head);
+        int jogoValidacao = 1;
         while (jogoValidacao == 1) {
           jogoValidacao = jogo(head);
         }
       } else if (key == '2') {
         comoJogar();
+
       } else if (key == '3') {
         // mostra o ranking
       } else if (key == '4') {
         // mostra os créditos
       } else if (key == '5') {
-        // end
+        break;
       } else {
         printf("");
       }
@@ -77,8 +83,9 @@ int main() {
 }
 
 void inserirLista(carta **head, char nome[TAMANHO], int ano, int cont,
-                  char acontecimento[TAMANHO]) { // 0 coloca antes da head e
-                                                 // 1 antes do primeiro termo
+                  char acontecimento[TAMANHO],
+                  int cor) { // 0 coloca antes da head e
+                             // 1 antes do primeiro termo
   carta *novo = (carta *)malloc(sizeof(carta));
   if (novo != NULL) {
     strcpy(novo->nome, nome);
@@ -86,6 +93,7 @@ void inserirLista(carta **head, char nome[TAMANHO], int ano, int cont,
     strcpy(novo->acontecimento, acontecimento);
     novo->ant = NULL;
     novo->prox = NULL;
+    novo->errado = cor;
 
     if (*head == NULL) {
       *head = novo;
@@ -116,36 +124,66 @@ void inserirLista(carta **head, char nome[TAMANHO], int ano, int cont,
   }
 }
 
-void lerArquivo(carta **head, const char *filename) {
-  FILE *file = fopen(filename, "r");
+carta *escolherCarta(carta *head) {
+  carta *novo = malloc(sizeof(carta));
+  FILE *file = fopen("bibliotecaWiki.txt", "r");
   if (file == NULL) {
     perror("Erro ao abrir o arquivo");
-    return;
   }
 
-  char line[TAMANHO];
-  while (fgets(line, sizeof(line), file)) {
-    char nome[TAMANHO];
-    int ano;
-    char acontecimento[TAMANHO];
-
-    line[strcspn(line, "\n")] = '\0';
-
-    char *token = strtok(line, " / ");
-    if (token != NULL) {
-      strcpy(nome, token);
-      token = strtok(NULL, " / ");
-      if (token != NULL) {
-        ano = atoi(token);
-        token = strtok(NULL, " / ");
-        if (token != NULL) {
-          strcpy(acontecimento, token);
-        }
-      }
+  int qtdLinhas = 0;
+  char caractere;
+  while ((caractere = fgetc(file)) != EOF) {
+    if (caractere == '\n') {
+      qtdLinhas++;
     }
   }
 
+  srand(time(NULL));
+  int linhaEscolhida = rand() % qtdLinhas;
+  int linhaAtual = 0;
+  char linha[TAMANHO];
+
+  rewind(file);
+
+  while (fgets(linha, TAMANHO, file)) {
+    if (linhaAtual == linhaEscolhida) {
+      novo = conversaoLinha(linha);
+      break;
+    }
+    linhaAtual++;
+  }
+
   fclose(file);
+  return novo;
+}
+
+carta *conversaoLinha(char *linha) {
+  carta *novo = malloc(sizeof(carta));
+
+  char nome[TAMANHO];
+  int i = 0, j = 0;
+
+  while (linha[i] != '/' && linha[i] != '\0') {
+    nome[j++] = linha[i++];
+  }
+  nome[j] = '\0';
+  strcpy(novo->nome, nome);
+
+  i++;
+  char ano[TAMANHO];
+  j = 0;
+
+  while (linha[i] != '/' && linha[i] != '\0') {
+    ano[j++] = linha[i++];
+  }
+  ano[j] = '\0';
+  novo->ano = atoi(ano);
+
+  i++;
+  strcpy(novo->acontecimento, &linha[i]);
+
+  return novo;
 }
 
 void printListaTela(carta *head) {
@@ -153,13 +191,20 @@ void printListaTela(carta *head) {
   screenSetColor(YELLOW, BLACK);
 
   int posicaoX = 4;
-  int posicaoY = 3;
+  int posicaoY = 5;
 
   screenGotoxy(posicaoX, posicaoY);
 
   if (head != NULL) {
     while (head != NULL) {
-      printf("%s --> %d", head->nome, head->ano);
+      if (head->errado == 1) {
+        screenSetColor(RED, BLACK);
+        printf("%s --> %d", head->nome, head->ano);
+        screenSetColor(YELLOW, BLACK);
+      } else {
+        screenSetColor(YELLOW, BLACK);
+        printf("%s --> %d", head->nome, head->ano);
+      }
       posicaoY += 1;
       screenGotoxy(posicaoX, posicaoY);
       if (head->prox != NULL) {
@@ -175,10 +220,8 @@ void printListaTela(carta *head) {
   }
 }
 
-// void ordenarLista(carta **head, int tamanho) {
-//   int troca, n;
-//   carta *atual;
-
+// void ordenarLista(carta **head, carta* cartaNova) {
+//
 //   while (troca) {
 //     troca = 0;
 //     atual = *head;
@@ -192,6 +235,12 @@ void printListaTela(carta *head) {
 //   }
 // }
 
+// void trocarCelula(carta **atualC, carta **proxC) {
+//   carta *temp = *atualC;
+//   *atualC = *proxC;
+//   
+//   *proxC = temp;
+// }
 int calcularTamanhoLista(carta *head) {
   int tamanho = 0;
   while (head != NULL) {
@@ -281,13 +330,13 @@ void comoJogar() {
 int jogo(carta *head) {
 
   int posicaoSetaX = 3;
-  int posicaoSetaY = 4;
-  carta novaCarta;
-  strcpy(novaCarta.nome, "Bibas");
-  
+  int posicaoSetaY = 6;
+  carta *novaCarta = escolherCarta(head);
+
   atualizarHead(&head);
   printListaTela(head);
-  printNovaCarta(novaCarta);
+  printNovaCarta(*novaCarta);
+  printVida(3);
   printSeta(3, posicaoSetaX, posicaoSetaY);
 
   int limite = calcularTamanhoLista(head), contLimite = 0;
@@ -328,8 +377,8 @@ int jogo(carta *head) {
           screenUpdate();
         }
       } else if (anda == 13) { // enter
-        inserirLista(&head, "Carta X", posicaoAdicionar, posicaoAdicionar,
-                     "seila porra 3");
+        inserirLista(&head, novaCarta->nome, novaCarta->ano, posicaoAdicionar,
+                     novaCarta->acontecimento, 0);
         return 1;
       }
     }
@@ -346,8 +395,18 @@ void atualizarHead(carta **head) {
 }
 
 void printNovaCarta(carta carta) {
-  screenGotoxy(54, 3);
+  screenGotoxy(52, 5);
   printf("%s", carta.nome);
-  screenGotoxy(54, 4);
+  screenGotoxy(51, 6);
   printf("%s", carta.acontecimento);
+}
+
+void printVida(int quantidade) {
+  int posicaoX = 38;
+  screenGotoxy(posicaoX, 2);
+  for (int i = 0; i < quantidade; i++) {
+    printf("♥");
+    posicaoX -= 2;
+    screenGotoxy(posicaoX, 2);
+  }
 }
