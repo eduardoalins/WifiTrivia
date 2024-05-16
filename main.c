@@ -26,7 +26,7 @@ int incX = 1, incY = 1;
 void inserirLista(carta **head, char nome[TAMANHO], int ano, int cont,
                   char acontecimento[TAMANHO], int cor);
 void printListaTela(carta *head);
-// void ordenarLista(carta **head, int tamanho);
+//void ordenarLista(carta **head);
 int calcularTamanhoLista(carta *head);
 void limparLista(carta **head);
 void apagarListaTela(carta *head);
@@ -35,15 +35,20 @@ void printSeta(int qtdTermos, int x, int y);
 void apagarSeta(int x, int y);
 carta *escolherCarta(carta *head);
 carta *conversaoLinha(char *linha);
-// void trocarCelula(carta **atualC, carta **proxC);
+//void trocarCelula(carta **atualC, carta **proxC);
 int jogo(carta *head);
 void menu();
 void comoJogar();
 void atualizarHead(carta **head);
 void printNovaCarta(carta carta);
 void printVida(int quantidade);
+void bubblesort(carta **head);
+void trocarCelula2(carta **atualC, carta **proxC);
+void verificarErro(carta **head, int ano);
+int contarVidas(carta *head);
 
 int main() {
+  screenSetColor(YELLOW, BLACK);
   srand(time(NULL));
   carta *head = NULL;
   menu();
@@ -61,6 +66,10 @@ int main() {
         int jogoValidacao = 1;
         while (jogoValidacao == 1) {
           jogoValidacao = jogo(head);
+        }
+        if(jogoValidacao == 0){
+          screenDestroy();
+          printf("Game Over");
         }
       } else if (key == '2') {
         comoJogar();
@@ -220,27 +229,34 @@ void printListaTela(carta *head) {
   }
 }
 
-// void ordenarLista(carta **head, carta* cartaNova) {
-//
-//   while (troca) {
-//     troca = 0;
-//     atual = *head;
-//     while (atual->prox != NULL) {
-//       if (atual->ano > atual->prox->ano) {
-//         //        trocarCelula(&atual, &atual->prox);
-//         troca = 1;
-//       }
-//       atual = atual->prox;
-//     }
-//   }
-// }
+void ordenarLista(carta **head) {
+  int n = 1, len = calcularTamanhoLista(*head);
+  carta *atual = *head;
+  for(int i = 0; i < len; i++){
+    atual = *head;
+    while(atual->prox != NULL){
+      if(atual->ano > atual->prox->ano){
+        int atualAno = (atual)->ano;
+        int proxAno = (atual->prox)->ano;
+        char atualNome[TAMANHO];
+        char proxNome[TAMANHO];
+        int atualCor = atual->errado;
+        int proxCor = atual->prox->errado;
+        strcpy(atualNome, (atual)->nome);
+        strcpy(proxNome, (atual->prox)->nome);
+        (atual)->ano = proxAno;
+        strcpy((atual)->nome, proxNome);
+        (atual->prox)->ano = atualAno;
+        strcpy((atual->prox)->nome, atualNome);
+        atual->errado = proxCor;
+        atual->prox->errado = atualCor;
+      }
+      atual = atual->prox;
+    }
+  }
+}
 
-// void trocarCelula(carta **atualC, carta **proxC) {
-//   carta *temp = *atualC;
-//   *atualC = *proxC;
-//   
-//   *proxC = temp;
-// }
+
 int calcularTamanhoLista(carta *head) {
   int tamanho = 0;
   while (head != NULL) {
@@ -285,31 +301,32 @@ void menu() {
   screenInit(1);
 
   screenSetColor(YELLOW, BLACK);
-  screenGotoxy(4, 5);
+  screenGotoxy(20, 6);
   printf("Bem Vindo ao WikiTrivia!");
 
   screenSetColor(WHITE, BLACK);
-  screenGotoxy(4, 10);
+  screenGotoxy(20, 10);
   printf(" 1 - Iniciar Jogo");
 
-  screenGotoxy(4, 12);
+  screenGotoxy(20, 14);
   printf(" 2 - Como Jogar");
 
-  screenGotoxy(4, 14);
+  screenGotoxy(20, 18);
   printf(" 3 - Ranking");
 
-  screenGotoxy(4, 16);
+  screenGotoxy(20, 22);
   printf(" 4 - Créditos");
 
-  screenGotoxy(4, 18);
+  screenGotoxy(20, 26);
   printf(" 5 - Sair");
 
   screenUpdate();
 }
 void comoJogar() {
-  screenDestroy();
+
   screenInit(1);
-  screenGotoxy(15, 5);
+  screenSetColor(WHITE, BLACK);
+  screenGotoxy(16, 5);
   printf("O jogo iniciará com uma carta na linha do tempo");
   screenGotoxy(23, 6);
   printf("e uma carta na mão do jogador.");
@@ -322,8 +339,10 @@ void comoJogar() {
   screenGotoxy(23, 14);
   printf("Você tem um total de três vidas.");
   screenGotoxy(7, 17);
-  printf("Para selecionar onde colocar a carta, use o WASD do seu teclado.");
-  screenGotoxy(33, 20);
+  printf("Para selecionar onde colocar a carta, use o W e S do seu teclado.");
+  screenGotoxy(22, 18);
+  printf("Use o ENTER para confirmar a seleção!");
+  screenGotoxy(35, 20);
   printf("Boa sorte!");
 }
 
@@ -333,10 +352,19 @@ int jogo(carta *head) {
   int posicaoSetaY = 6;
   carta *novaCarta = escolherCarta(head);
 
+  screenUpdate();
   atualizarHead(&head);
+  ordenarLista(&head);
   printListaTela(head);
   printNovaCarta(*novaCarta);
-  printVida(3);
+
+  int vidas = contarVidas(head);
+  if (vidas <= 0){
+    return 0;
+  }else{
+    printVida(vidas);
+  }
+  
   printSeta(3, posicaoSetaX, posicaoSetaY);
 
   int limite = calcularTamanhoLista(head), contLimite = 0;
@@ -379,6 +407,7 @@ int jogo(carta *head) {
       } else if (anda == 13) { // enter
         inserirLista(&head, novaCarta->nome, novaCarta->ano, posicaoAdicionar,
                      novaCarta->acontecimento, 0);
+        verificarErro(&head, novaCarta->ano);
         return 1;
       }
     }
@@ -395,9 +424,9 @@ void atualizarHead(carta **head) {
 }
 
 void printNovaCarta(carta carta) {
-  screenGotoxy(52, 5);
+  screenGotoxy(48, 5);
   printf("%s", carta.nome);
-  screenGotoxy(51, 6);
+  screenGotoxy(47, 6);
   printf("%s", carta.acontecimento);
 }
 
@@ -409,4 +438,28 @@ void printVida(int quantidade) {
     posicaoX -= 2;
     screenGotoxy(posicaoX, 2);
   }
+}
+
+void verificarErro(carta **head, int ano) {
+    carta *n = *head;
+    while (n != NULL && n->ano != ano) {
+        n = n->prox;
+    }
+    if (n != NULL && n->prox != NULL && n->ano > n->prox->ano) {
+        n->errado = 1;
+    }
+    else if (n != NULL && n->ant != NULL && n->ano < n->ant->ano) {
+        n->errado = 1;
+    }
+}
+
+int contarVidas(carta *head){
+  int cont = 3;
+  while(head != NULL){
+    if(head->errado == 1){
+      cont--;
+    }
+    head = head->prox;
+  }
+  return cont;
 }
